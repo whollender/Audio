@@ -65,4 +65,26 @@ protected:
 	static void config_i2s(void);
 };
 
+class AudioOutputI2S32bitslave : public AudioStream
+{
+public:
+	AudioOutputI2S32bitslave(void) : AudioStream(2, inputQueueArray) { begin(); }
+	virtual void update(void);
+	void begin(void);
+	friend class AudioInputI2S32bitslave;
+protected:
+	//AudioOutputI2S(int dummy): AudioStream(2, inputQueueArray) {} // to be used only inside AudioOutputI2Sslave !!
+	static void config_i2s(void);
+	static audio_block_t *block_left_1st;
+	static audio_block_t *block_right_1st;
+	static bool update_responsibility;
+	static DMAChannel dma;
+	static void isr(void);
+private:
+	static audio_block_t *block_left_2nd;
+	static audio_block_t *block_right_2nd;
+	static uint16_t block_left_offset;
+	static uint16_t block_right_offset;
+	audio_block_t *inputQueueArray[2];
+};
 #endif

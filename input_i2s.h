@@ -56,4 +56,21 @@ public:
 	friend void dma_ch1_isr(void);
 };
 
+class AudioInputI2S32bitslave : public AudioStream
+{
+public:
+	AudioInputI2S32bitslave (void) : AudioStream(0, NULL) { begin(); }
+	virtual void update(void);
+	void begin(void);
+protected:	
+	//AudioInputI2S(int dummy): AudioStream(0, NULL) {} // to be used only inside AudioInputI2Sslave !!
+	static bool update_responsibility;
+	static DMAChannel dma;
+	static void isr(void);
+private:
+	static audio_block_t *block_left;
+	static audio_block_t *block_right;
+	static uint16_t block_offset;
+};
+
 #endif
