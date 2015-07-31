@@ -228,11 +228,11 @@ void AudioInputI2S32bitslave::begin(void)
 
 	dma.TCD->SADDR = &I2S0_RDR0;
 	dma.TCD->SOFF = 0;
-	dma.TCD->ATTR = DMA_TCD_ATTR_SSIZE(1) | DMA_TCD_ATTR_DSIZE(1);
-	dma.TCD->NBYTES_MLNO = 4;
+	dma.TCD->ATTR = DMA_TCD_ATTR_SSIZE(2) | DMA_TCD_ATTR_DSIZE(2); // 32 bit transfer
+	dma.TCD->NBYTES_MLNO = 4;									   // 4 bytes per minor loop
 	dma.TCD->SLAST = 0;
 	dma.TCD->DADDR = i2s_rx_buffer_32bit;
-	dma.TCD->DOFF = 4;
+	dma.TCD->DOFF = 4;											   // Increment destination offset by 4 bytes each transfer
 	dma.TCD->CITER_ELINKNO = sizeof(i2s_rx_buffer_32bit) / 2;
 	dma.TCD->DLASTSGA = -sizeof(i2s_rx_buffer_32bit);
 	dma.TCD->BITER_ELINKNO = sizeof(i2s_rx_buffer_32bit) / 2;
@@ -242,6 +242,7 @@ void AudioInputI2S32bitslave::begin(void)
 	update_responsibility = update_setup();
 	dma.enable();
 
+	// TODO: Need to double check CSR reg settings for slave mode
 	I2S0_RCSR |= I2S_RCSR_RE | I2S_RCSR_BCE | I2S_RCSR_FRDE | I2S_RCSR_FR;
 	I2S0_TCSR |= I2S_TCSR_TE | I2S_TCSR_BCE; // TX clock enable, because sync'd to TX
 	dma.attachInterrupt(isr);
@@ -250,9 +251,10 @@ void AudioInputI2S32bitslave::begin(void)
 void AudioInputI2S32bitslave::isr(void)
 {
 	uint32_t daddr, offset;
-	const int16_t *src, *end;
+	const int32_t *src, *end;
 	int16_t *dest_left, *dest_right;
 	audio_block_t *left, *right;
+	int32_t n;
 
 	//digitalWriteFast(3, HIGH);
 	daddr = (uint32_t)(dma.TCD->DADDR);
@@ -261,14 +263,14 @@ void AudioInputI2S32bitslave::isr(void)
 	if (daddr < (uint32_t)i2s_rx_buffer_32bit + sizeof(i2s_rx_buffer_32bit) / 2) {
 		// DMA is receiving to the first half of the buffer
 		// need to remove data from the second half
-		src = (int16_t *)&i2s_rx_buffer_32bit[AUDIO_BLOCK_SAMPLES/2];
-		end = (int16_t *)&i2s_rx_buffer_32bit[AUDIO_BLOCK_SAMPLES];
+		src = (int32_t *)&i2s_rx_buffer_32bit[AUDIO_BLOCK_SAMPLES];
+		end = (int32_t *)&i2s_rx_buffer_32bit[AUDIO_BLOCK_SAMPLES*2];
 		if (AudioInputI2S32bitslave::update_responsibility) AudioStream::update_all();
 	} else {
 		// DMA is receiving to the second half of the buffer
 		// need to remove data from the first half
-		src = (int16_t *)&i2s_rx_buffer_32bit[0];
-		end = (int16_t *)&i2s_rx_buffer_32bit[AUDIO_BLOCK_SAMPLES/2];
+		src = (int32_t *)&i2s_rx_buffer_32bit[0];
+		end = (int32_t *)&i2s_rx_buffer_32bit[AUDIO_BLOCK_SAMPLES];
 	}
 	left = AudioInputI2S32bitslave::block_left;
 	right = AudioInputI2S32bitslave::block_right;
@@ -279,11 +281,15 @@ void AudioInputI2S32bitslave::isr(void)
 			dest_right = &(right->data[offset]);
 			AudioInputI2S32bitslave::block_offset = offset + AUDIO_BLOCK_SAMPLES/2;
 			do {
-				//n = *src++;
-				//*dest_left++ = (int16_t)n;
-				//*dest_right++ = (int16_t)(n >> 16);
-				*dest_left++ = *src++;
-				*dest_right++ = *src++;
+				// Changed copies from DMA buffer to audio block
+				// to truncate to 16 bits
+				// RFWH, 7-30-15
+
+				n = *src++;
+				*dest_left++ = (int16_t)(n >> 16);
+
+				n = *src++;
+				*dest_right++ = (int16_t)(n >> 16);
 			} while (src < end);
 		}
 	}
@@ -292,6 +298,9 @@ void AudioInputI2S32bitslave::isr(void)
 
 
 
+// This function shouldn't need any updates for 32 bit frame sizes
+// (all changes are in ISR)
+// RFWH, 7-30-15
 void AudioInputI2S32bitslave::update(void)
 {
 	audio_block_t *new_left=NULL, *new_right=NULL, *out_left=NULL, *out_right=NULL;

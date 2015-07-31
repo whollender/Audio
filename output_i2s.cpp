@@ -351,7 +351,7 @@ audio_block_t * AudioOutputI2S32bitslave::block_right_2nd = NULL;
 uint16_t  AudioOutputI2S32bitslave::block_left_offset = 0;
 uint16_t  AudioOutputI2S32bitslave::block_right_offset = 0;
 bool AudioOutputI2S32bitslave::update_responsibility = false;
-DMAMEM static uint32_t i2s_tx_buffer_32bit[AUDIO_BLOCK_SAMPLES];
+DMAMEM static uint32_t i2s_tx_buffer_32bit[AUDIO_BLOCK_SAMPLES*2];
 DMAChannel AudioOutputI2S32bitslave::dma(false);
 
 void AudioOutputI2S32bitslave::begin(void)
@@ -366,9 +366,9 @@ void AudioOutputI2S32bitslave::begin(void)
 	CORE_PIN22_CONFIG = PORT_PCR_MUX(6); // pin 22, PTC1, I2S0_TXD0
 
 	dma.TCD->SADDR = i2s_tx_buffer_32bit;
-	dma.TCD->SOFF = 4;
-	dma.TCD->ATTR = DMA_TCD_ATTR_SSIZE(1) | DMA_TCD_ATTR_DSIZE(1);
-	dma.TCD->NBYTES_MLNO = 4;
+	dma.TCD->SOFF = 4;												// Increment source address 4 bytes each xfer
+	dma.TCD->ATTR = DMA_TCD_ATTR_SSIZE(2) | DMA_TCD_ATTR_DSIZE(2);  // Xfer size 32 bits
+	dma.TCD->NBYTES_MLNO = 4;										// 4 bytes per minor loop
 	dma.TCD->SLAST = -sizeof(i2s_tx_buffer_32bit);
 	dma.TCD->DADDR = &I2S0_TDR0;
 	dma.TCD->DOFF = 0;
@@ -387,8 +387,9 @@ void AudioOutputI2S32bitslave::begin(void)
 
 void AudioOutputI2S32bitslave::isr(void)
 {
-	const int16_t *src, *end;
-	int16_t *dest;
+	const int16_t *src;
+	const int32_t *end;
+	int32_t *dest;
 	audio_block_t *block;
 	uint32_t saddr, offset;
 
@@ -397,14 +398,14 @@ void AudioOutputI2S32bitslave::isr(void)
 	if (saddr < (uint32_t)i2s_tx_buffer_32bit + sizeof(i2s_tx_buffer_32bit) / 2) {
 		// DMA is transmitting the first half of the buffer
 		// so we must fill the second half
-		dest = (int16_t *)&i2s_tx_buffer_32bit[AUDIO_BLOCK_SAMPLES/2];
-		end = (int16_t *)&i2s_tx_buffer_32bit[AUDIO_BLOCK_SAMPLES];
+		dest = (int32_t *)&i2s_tx_buffer_32bit[AUDIO_BLOCK_SAMPLES];
+		end = (int32_t *)&i2s_tx_buffer_32bit[AUDIO_BLOCK_SAMPLES*2];
 		if (AudioOutputI2S32bitslave::update_responsibility) AudioStream::update_all();
 	} else {
 		// DMA is transmitting the second half of the buffer
 		// so we must fill the first half
-		dest = (int16_t *)i2s_tx_buffer_32bit;
-		end = (int16_t *)&i2s_tx_buffer_32bit[AUDIO_BLOCK_SAMPLES/2];
+		dest = (int32_t *)i2s_tx_buffer_32bit;
+		end = (int32_t *)&i2s_tx_buffer_32bit[AUDIO_BLOCK_SAMPLES];
 	}
 
 	// TODO: these copy routines could be merged and optimized, maybe in assembly?
@@ -413,8 +414,9 @@ void AudioOutputI2S32bitslave::isr(void)
 		offset = AudioOutputI2S32bitslave::block_left_offset;
 		src = &block->data[offset];
 		do {
-			*dest = *src++;
-			dest += 2;
+			*dest = ((int32_t)*src) << 16;
+			src += 2;
+			dest += 4;
 		} while (dest < end);
 		offset += AUDIO_BLOCK_SAMPLES/2;
 		if (offset < AUDIO_BLOCK_SAMPLES) {
@@ -428,7 +430,7 @@ void AudioOutputI2S32bitslave::isr(void)
 	} else {
 		do {
 			*dest = 0;
-			dest += 2;
+			dest += 4;
 		} while (dest < end);
 	}
 	dest -= AUDIO_BLOCK_SAMPLES - 1;
@@ -437,8 +439,9 @@ void AudioOutputI2S32bitslave::isr(void)
 		offset = AudioOutputI2S32bitslave::block_right_offset;
 		src = &block->data[offset];
 		do {
-			*dest = *src++;
-			dest += 2;
+			*dest = ((int32_t)*src) << 16;
+			src += 2;
+			dest += 4;
 		} while (dest < end);
 		offset += AUDIO_BLOCK_SAMPLES/2;
 		if (offset < AUDIO_BLOCK_SAMPLES) {
@@ -452,7 +455,7 @@ void AudioOutputI2S32bitslave::isr(void)
 	} else {
 		do {
 			*dest = 0;
-			dest += 2;
+			dest += 4;
 		} while (dest < end);
 	}
 }
@@ -509,36 +512,6 @@ void AudioOutputI2S32bitslave::update(void)
 }
 
 
-// MCLK needs to be 48e6 / 1088 * 256 = 11.29411765 MHz -> 44.117647 kHz sample rate
-//
-#if F_CPU == 96000000 || F_CPU == 48000000 || F_CPU == 24000000
-  // PLL is at 96 MHz in these modes
-  #define MCLK_MULT 2
-  #define MCLK_DIV  17
-#elif F_CPU == 72000000
-  #define MCLK_MULT 8
-  #define MCLK_DIV  51
-#elif F_CPU == 120000000
-  #define MCLK_MULT 8
-  #define MCLK_DIV  85
-#elif F_CPU == 144000000
-  #define MCLK_MULT 4
-  #define MCLK_DIV  51
-#elif F_CPU == 168000000
-  #define MCLK_MULT 8
-  #define MCLK_DIV  119
-#elif F_CPU == 16000000
-  #define MCLK_MULT 12
-  #define MCLK_DIV  17
-#else
-  #error "This CPU Clock Speed is not supported by the Audio library";
-#endif
-
-#if F_CPU >= 20000000
-  #define MCLK_SRC  3  // the PLL
-#else
-  #define MCLK_SRC  0  // system clock
-#endif
 
 void AudioOutputI2S32bitslave::config_i2s(void)
 {
@@ -550,34 +523,83 @@ void AudioOutputI2S32bitslave::config_i2s(void)
 	if (I2S0_TCSR & I2S_TCSR_TE) return;
 	if (I2S0_RCSR & I2S_RCSR_RE) return;
 
-	// enable MCLK output
-	I2S0_MCR = I2S_MCR_MICS(MCLK_SRC) | I2S_MCR_MOE;
-	I2S0_MDR = I2S_MDR_FRACT((MCLK_MULT-1)) | I2S_MDR_DIVIDE((MCLK_DIV-1));
+	///////////////////////////////////////////////////////////
+	// Following setup code copied from proof-of-concept code
+	// in SuperAudioBoard repo.
+	// I2S setup should be the same.  DMA will copy 32 bits
+	// per sample, then DMA ISR will shift down to 16 most
+	// significant bits and copy to audio block.
+	///////////////////////////////////////////////////////////
+	// NOTE: This setup is for left justified protocol
+	// (ie, frame sync change and 0th bit are same cycle)
+	// NOT I2S format (frame sync change one bit clock before
+	// 0th bit).
+	//////////////////////////////////////////////////////////
+	
 
-	// configure transmitter
-	I2S0_TMR = 0;
-	I2S0_TCR1 = I2S_TCR1_TFW(1);  // watermark at half fifo size
-	I2S0_TCR2 = I2S_TCR2_SYNC(0) | I2S_TCR2_BCP | I2S_TCR2_MSEL(1)
-		| I2S_TCR2_BCD | I2S_TCR2_DIV(3);
-	I2S0_TCR3 = I2S_TCR3_TCE;
-	I2S0_TCR4 = I2S_TCR4_FRSZ(1) | I2S_TCR4_SYWD(15) | I2S_TCR4_MF
-		| I2S_TCR4_FSE | I2S_TCR4_FSP | I2S_TCR4_FSD;
-	I2S0_TCR5 = I2S_TCR5_WNW(15) | I2S_TCR5_W0W(15) | I2S_TCR5_FBT(15);
+	// Using external MCLK, so just effectively shut this off
+	I2S0_MCR = I2S_MCR_MICS(0);
+	I2S0_MDR = 0;
 
-	// configure receiver (sync'd to transmitter clocks)
-	I2S0_RMR = 0;
-	I2S0_RCR1 = I2S_RCR1_RFW(1);
-	I2S0_RCR2 = I2S_RCR2_SYNC(1) | I2S_TCR2_BCP | I2S_RCR2_MSEL(1)
-		| I2S_RCR2_BCD | I2S_RCR2_DIV(3);
-	I2S0_RCR3 = I2S_RCR3_RCE;
-	I2S0_RCR4 = I2S_RCR4_FRSZ(1) | I2S_RCR4_SYWD(15) | I2S_RCR4_MF
-		| I2S_RCR4_FSE | I2S_RCR4_FSP | I2S_RCR4_FSD;
-	I2S0_RCR5 = I2S_RCR5_WNW(15) | I2S_RCR5_W0W(15) | I2S_RCR5_FBT(15);
+	///////////////////////
+	// Setup TX side
+	///////////////////////
+	
+
+	I2S0_TMR = 0; // Don't mask any words
+	I2S0_TCR1 = I2S_TCR1_TFW(2); // Set watermark to one word
+	// TODO: need to research watermark positioning a bit better
+	
+	// Setup for 24 bit left justified
+	// Set sync off (TX is master),
+	// Bit clock selected for active low (drive on falling edge, sample on rising edge)
+	// Bit clock generated externally (slave mode)
+	I2S0_TCR2 = I2S_TCR2_SYNC(0) | I2S_TCR2_BCP;
+
+	I2S0_TCR3 = I2S_TCR3_TCE; // Only enable ch 0
+
+	// Frame size is 2 (L + R), sync width is 32 (LR clock is active for first word),
+	// MSB first, LR clock asserted with first bit
+	// LR clock is active low, and LR clock generated externally.
+	I2S0_TCR4 = I2S_TCR4_FRSZ(1) | I2S_TCR4_SYWD(31) | I2S_TCR4_MF 
+		| I2S_TCR4_FSP;
+
+	// Set up all word widths to 31, then right shift after reading
+	// to get 24 bit data.
+	// Could probably set the first word width to 31, remaining widths
+	// to 23, and set the first bit to 23, but not sure if that would work
+	I2S0_TCR5 = I2S_TCR5_WNW(31) | I2S_TCR5_W0W(31) | I2S_TCR5_FBT(31);
+
+
+	//////////////////////////////
+	// Setup Rx side
+	// (pretty much the same as tx
+	// but set sync to tx clocks)
+	//////////////////////////////
+	
+	I2S0_RMR = 0; // Don't mask any words
+
+	I2S0_RCR1 = I2S_RCR1_RFW(2); // Set watermark to one word
+
+	// Same settings as tx, but sync to tx
+	I2S0_RCR2 = I2S_RCR2_SYNC(1) | I2S_TCR2_BCP;
+
+	I2S0_RCR3 = I2S_RCR3_RCE; // Enable ch 0
+
+	// two words per frame, sync width 16 bit clocks, MSB first, sync early,
+	// LR clock(sync) active low, sync generated internally
+	I2S0_RCR4 = I2S_RCR4_FRSZ(1) | I2S_RCR4_SYWD(31) | I2S_RCR4_MF
+		| I2S_RCR4_FSP;
+
+	// See TX word width discussion above
+	I2S0_RCR5 = I2S_RCR5_WNW(31) | I2S_RCR5_W0W(31) | I2S_RCR5_FBT(31);
+
 
 	// configure pin mux for 3 clock signals
 	CORE_PIN23_CONFIG = PORT_PCR_MUX(6); // pin 23, PTC2, I2S0_TX_FS (LRCLK)
 	CORE_PIN9_CONFIG  = PORT_PCR_MUX(6); // pin  9, PTC3, I2S0_TX_BCLK
 	CORE_PIN11_CONFIG = PORT_PCR_MUX(6); // pin 11, PTC6, I2S0_MCLK
+
 }
 
 
