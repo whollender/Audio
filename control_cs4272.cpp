@@ -85,6 +85,7 @@ bool AudioControlCS4272::enable(void)
 {
 	Wire.begin();
 	delay(5);
+	initLocalRegs();
 	//write(WM8731_REG_RESET, 0);
 
 	write(WM8731_REG_INTERFACE, 0x02); // I2S, 16 bit, MCLK slave
@@ -115,8 +116,14 @@ bool AudioControlCS4272::enable(void)
 
 bool AudioControlCS4272::write(unsigned int reg, unsigned int val)
 {
+	// Write local copy first
+	if(reg > 7)
+		return false;
+
+	regLocal[reg] = val;
+
 	Wire.beginTransmission(CS4272_ADDR);
-	Wire.write((reg << 1) | ((val >> 8) & 1));
+	Wire.write(reg & 0xFF);
 	Wire.write(val & 0xFF);
 	Wire.endTransmission();
 	return true;
@@ -133,6 +140,18 @@ bool AudioControlCS4272::volumeInteger(unsigned int n)
 	write(WM8731_REG_LHEADOUT, n | 0x180);
 	write(WM8731_REG_RHEADOUT, n | 0x80);
 	return true;
+}
+
+// Initialize local registers to CS4272 reset status
+void AudioControlCS4272::initLocalRegs(void)
+{
+	regLocal[CS4272_MODE_CONTROL] = 0x00;
+	regLocal[CS4272_DAC_CONTROL] = CS4272_DAC_CTRL_AUTO_MUTE;
+	regLocal[CS4272_DAC_VOL] = CS4272_DAC_VOL_SOFT_RAMP | CS4272_DAC_VOL_ATAPI(9);
+	regLocal[CS4272_DAC_CHA_VOL] = 0x00;
+	regLocal[CS4272_DAC_CHB_VOL] = 0x00;
+	regLocal[CS4272_ADC_CTRL] = 0x00;
+	regLocal[CS4272_MODE_CTRL2] = 0x00;
 }
 
 

@@ -55,14 +55,9 @@ protected:
 	bool write(unsigned int reg, unsigned int val);
 	bool volumeInteger(unsigned int n); // range: 0x0 to 0x7F
 	
-	// Local register copies
-	uint8_t reg_mode_control;
-	uint8_t reg_dac_control;
-	uint8_t reg_dac_vol_mix;
-	uint8_t reg_dac_cha_vol;
-	uint8_t reg_dac_chb_vol;
-	uint8_t reg_adc_control;
-	uint8_t reg_mode_control2;
+	uint8_t[8] regLocal;
+
+	void initLocalRegs(void);
 };
 
 // For sample rate ratio select (only single speed tested)
