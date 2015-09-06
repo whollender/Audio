@@ -55,7 +55,7 @@ protected:
 	bool write(unsigned int reg, unsigned int val);
 	bool volumeInteger(unsigned int n); // range: 0x0 to 0x7F
 	
-	uint8_t[8] regLocal;
+	uint8_t regLocal[8];
 
 	void initLocalRegs(void);
 };

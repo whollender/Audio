@@ -128,8 +128,8 @@ bool AudioControlCS4272::enable(void)
 bool AudioControlCS4272::volumeInteger(unsigned int n)
 {
 	unsigned int val = 0x7F - (n & 0x7F);
-	write(CS4272_DAC_CHA_VOL,CS4272_DAC_CHA_VOL(val));
-	write(CS4272_DAC_CHB_VOL,CS4272_DAC_CHB_VOL(val));
+	write(CS4272_DAC_CHA_VOL,CS4272_DAC_CHA_VOL_VOLUME(val));
+	write(CS4272_DAC_CHB_VOL,CS4272_DAC_CHB_VOL_VOLUME(val));
 	return true;
 }
 
@@ -141,10 +141,10 @@ bool AudioControlCS4272::volume(float left, float right)
 	rightInt = right*127 + 0.499;
 
 	unsigned int val = 0x7F - (leftInt & 0x7F);
-	write(CS4272_DAC_CHA_VOL,CS4272_DAC_CHA_VOL(val));
+	write(CS4272_DAC_CHA_VOL,CS4272_DAC_CHA_VOL_VOLUME(val));
 	
 	val = 0x7F - (rightInt & 0x7F);
-	write(CS4272_DAC_CHB_VOL,CS4272_DAC_CHB_VOL(val));
+	write(CS4272_DAC_CHB_VOL,CS4272_DAC_CHB_VOL_VOLUME(val));
 
 	return true;
 }
@@ -226,7 +226,7 @@ void AudioControlCS4272::initLocalRegs(void)
 {
 	regLocal[CS4272_MODE_CONTROL] = 0x00;
 	regLocal[CS4272_DAC_CONTROL] = CS4272_DAC_CTRL_AUTO_MUTE;
-	regLocal[CS4272_DAC_VOL] = CS4272_DAC_VOL_SOFT_RAMP | CS4272_DAC_VOL_ATAPI(9);
+	regLocal[CS4272_DAC_VOL] = CS4272_DAC_VOL_SOFT_RAMP(2) | CS4272_DAC_VOL_ATAPI(9);
 	regLocal[CS4272_DAC_CHA_VOL] = 0x00;
 	regLocal[CS4272_DAC_CHB_VOL] = 0x00;
 	regLocal[CS4272_ADC_CTRL] = 0x00;
