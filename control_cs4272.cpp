@@ -40,76 +40,167 @@
 #define CS4272_DAC_CONTROL							(uint8_t)0x02
 #define CS4272_DAC_CTRL_AUTO_MUTE					(uint8_t)0x80
 #define CS4272_DAC_CTRL_FILTER_SEL					(uint8_t)0x40
-#define CS4272_DAC_CTRL_DE_EMPHASIS					(uint8_t)(((x) & 0x03) << 4)
+#define CS4272_DAC_CTRL_DE_EMPHASIS(x)				(uint8_t)(((x) & 0x03) << 4)
 #define CS4272_DAC_CTRL_VOL_RAMP_UP					(uint8_t)0x08
 #define CS4272_DAC_CTRL_VOL_RAMP_DN					(uint8_t)0x04
-#define CS4272_DAC_CTRL_INV_POL						(uint8_t)(((x) & 0x03) << 0)
+#define CS4272_DAC_CTRL_INV_POL(x)					(uint8_t)(((x) & 0x03) << 0)
 
 // Section 8.3 DAC Volume and Mixing
 #define CS4272_DAC_VOL								(uint8_t)0x03
 #define CS4272_DAC_VOL_CH_VOL_TRACKING				(uint8_t)0x40
-#define CS4272_DAC_VOL_SOFT_RAMP						(uint8_t)(((x) & 0x03) << 4)
-#define CS4272_DAC_VOL_ATAPI							(uint8_t)(((x) & 0x0F) << 0)
+#define CS4272_DAC_VOL_SOFT_RAMP(x)					(uint8_t)(((x) & 0x03) << 4)
+#define CS4272_DAC_VOL_ATAPI(x)						(uint8_t)(((x) & 0x0F) << 0)
 
 // Section 8.4 DAC Channel A volume
 #define CS4272_DAC_CHA_VOL							(uint8_t)0x04
 #define CS4272_DAC_CHA_VOL_MUTE						(uint8_t)0x80
-#define CS4272_DAC_CHA_VOL_VOLUME					(uint8_t)(((x) & 0x7F) << 0)
+#define CS4272_DAC_CHA_VOL_VOLUME(x)				(uint8_t)(((x) & 0x7F) << 0)
 
 // Section 8.5 DAC Channel B volume
 #define CS4272_DAC_CHB_VOL							(uint8_t)0x05
 #define CS4272_DAC_CHB_VOL_MUTE						(uint8_t)0x80
-#define CS4272_DAC_CHB_VOL_VOLUME					(uint8_t)(((x) & 0x7F) << 0)
+#define CS4272_DAC_CHB_VOL_VOLUME(x)				(uint8_t)(((x) & 0x7F) << 0)
 
 // Section 8.6 ADC Control
 #define CS4272_ADC_CTRL								(uint8_t)0x06
 #define CS4272_ADC_CTRL_DITHER						(uint8_t)0x20
 #define CS4272_ADC_CTRL_SER_FORMAT					(uint8_t)0x10
-#define CS4272_ADC_CTRL_MUTE							(uint8_t)(((x) & 0x03) << 2)
-#define CS4272_ADC_CTRL_HPF							(uint8_t)(((x) & 0x03) << 0)
+#define CS4272_ADC_CTRL_MUTE(x)						(uint8_t)(((x) & 0x03) << 2)
+#define CS4272_ADC_CTRL_HPF(x)						(uint8_t)(((x) & 0x03) << 0)
 
 // Section 8.7 Mode Control 2
 #define CS4272_MODE_CTRL2							(uint8_t)0x07
 #define CS4272_MODE_CTRL2_LOOP						(uint8_t)0x10
-#define CS4272_MODE_CTRL2_MUTE_TRACK					(uint8_t)0x08
+#define CS4272_MODE_CTRL2_MUTE_TRACK				(uint8_t)0x08
 #define CS4272_MODE_CTRL2_CTRL_FREEZE				(uint8_t)0x04
 #define CS4272_MODE_CTRL2_CTRL_PORT_EN				(uint8_t)0x02
-#define CS4272_MODE_CTRL2_POWER_DOWN					(uint8_t)0x01
+#define CS4272_MODE_CTRL2_POWER_DOWN				(uint8_t)0x01
 
 // Section 8.8 Chip ID
 #define CS4272_CHIP_ID								(uint8_t)0x08
-#define CS4272_CHIP_ID_PART							(uint8_t)(((x) & 0x0F) << 4)
-#define CS4272_CHIP_ID_REV							(uint8_t)(((x) & 0x0F) << 0)
+#define CS4272_CHIP_ID_PART(x)						(uint8_t)(((x) & 0x0F) << 4)
+#define CS4272_CHIP_ID_REV(x)						(uint8_t)(((x) & 0x0F) << 0)
+
+
+#define CS4272_RESET_PIN 2
 
 bool AudioControlCS4272::enable(void)
 {
 	Wire.begin();
 	delay(5);
 	initLocalRegs();
-	//write(WM8731_REG_RESET, 0);
 
-	write(WM8731_REG_INTERFACE, 0x02); // I2S, 16 bit, MCLK slave
-	write(WM8731_REG_SAMPLING, 0x20);  // 256*Fs, 44.1 kHz, MCLK/1
+	// Setup Reset pin
+	pinMode(CS4272_RESET_PIN, OUTPUT);
 
-	// In order to prevent pops, the DAC should first be soft-muted (DACMU),
-	// the output should then be de-selected from the line and headphone output
-	// (DACSEL), then the DAC powered down (DACPD).
+	// Drive pin low
+	digitalWriteFast(CS4272_RESET_PIN,0);
+	delay(1);
 
-	write(WM8731_REG_DIGITAL, 0x08);   // DAC soft mute
-	write(WM8731_REG_ANALOG, 0x00);    // disable all
+	// Release Reset
+	digitalWriteFast(CS4272_RESET_PIN,1);
+	delay(2);
 
-	write(WM8731_REG_POWERDOWN, 0x00); // codec powerdown
+	// Set power down and control port enable as spec'd in the 
+	// datasheet for control port mode
+	write(CS4272_MODE_CTRL2, CS4272_MODE_CTRL2_POWER_DOWN
+			| CS4272_MODE_CTRL2_CTRL_PORT_EN);
 
-	write(WM8731_REG_LHEADOUT, 0x80);      // volume off
-	write(WM8731_REG_RHEADOUT, 0x80);
+	// Wait for further setup
+	delay(1);
 
-	delay(100); // how long to power up?
+	// Set ratio select for MCLK=512*LRCLK (BCLK = 64*LRCLK), and master mode
+	write(CS4272_MODE_CONTROL, CS4272_MC_RATIO_SEL(3) | CS4272_MC_MASTER_SLAVE);
 
-	write(WM8731_REG_ACTIVE, 1);
-	delay(5);
-	write(WM8731_REG_DIGITAL, 0x00);   // DAC unmuted
-	write(WM8731_REG_ANALOG, 0x10);    // DAC selected
+	delay(10);
+	
+	// Release power down bit to start up codec
+	// TODO: May need other bits set in this reg
+	write(CS4272_MODE_CTRL2, CS4272_MODE_CTRL2_CTRL_PORT_EN);
+	
+	// Wait for everything to come up
+	delay(10);
 
+
+	return true;
+}
+
+bool AudioControlCS4272::volumeInteger(unsigned int n)
+{
+	unsigned int val = 0x7F - (n & 0x7F);
+	write(CS4272_DAC_CHA_VOL,CS4272_DAC_CHA_VOL(val));
+	write(CS4272_DAC_CHB_VOL,CS4272_DAC_CHB_VOL(val));
+	return true;
+}
+
+bool AudioControlCS4272::volume(float left, float right)
+{
+	unsigned int leftInt,rightInt;
+
+	leftInt = left*127 + 0.499;
+	rightInt = right*127 + 0.499;
+
+	unsigned int val = 0x7F - (leftInt & 0x7F);
+	write(CS4272_DAC_CHA_VOL,CS4272_DAC_CHA_VOL(val));
+	
+	val = 0x7F - (rightInt & 0x7F);
+	write(CS4272_DAC_CHB_VOL,CS4272_DAC_CHB_VOL(val));
+
+	return true;
+}
+
+bool AudioControlCS4272::dacVolume(float left, float right)
+{
+	return volume(left,right);
+}
+
+bool AudioControlCS4272::muteOutput(void)
+{
+	write(CS4272_DAC_CHA_VOL, 
+			regLocal[CS4272_DAC_CHA_VOL] | CS4272_DAC_CHA_VOL_MUTE);
+
+	write(CS4272_DAC_CHB_VOL, 
+			regLocal[CS4272_DAC_CHB_VOL] | CS4272_DAC_CHB_VOL_MUTE);
+
+	return true;
+}
+
+bool AudioControlCS4272::unmuteOutput(void)
+{
+	write(CS4272_DAC_CHA_VOL, 
+			regLocal[CS4272_DAC_CHA_VOL] & ~CS4272_DAC_CHA_VOL_MUTE);
+
+	write(CS4272_DAC_CHB_VOL, 
+			regLocal[CS4272_DAC_CHB_VOL] & ~CS4272_DAC_CHB_VOL_MUTE);
+
+	return true;
+}
+
+bool AudioControlCS4272::muteInput(void)
+{
+	uint8_t val = regLocal[CS4272_ADC_CTRL] | CS4272_ADC_CTRL_MUTE(3);
+	write(CS4272_ADC_CTRL,val);
+	return true;
+}
+
+bool AudioControlCS4272::unmuteInput(void)
+{
+	uint8_t val = regLocal[CS4272_ADC_CTRL] & ~CS4272_ADC_CTRL_MUTE(3);
+	write(CS4272_ADC_CTRL,val);
+	return true;
+}
+
+bool AudioControlCS4272::enableDither(void)
+{
+	uint8_t val = regLocal[CS4272_ADC_CTRL] | CS4272_ADC_CTRL_DITHER;
+	write(CS4272_ADC_CTRL,val);
+	return true;
+}
+
+bool AudioControlCS4272::disableDither(void)
+{
+	uint8_t val = regLocal[CS4272_ADC_CTRL] & ~CS4272_ADC_CTRL_DITHER;
+	write(CS4272_ADC_CTRL,val);
 	return true;
 }
 
@@ -129,18 +220,6 @@ bool AudioControlCS4272::write(unsigned int reg, unsigned int val)
 	return true;
 }
 
-bool AudioControlCS4272::volumeInteger(unsigned int n)
-{
-	// n = 127 for max volume (+6 dB)
-	// n = 48 for min volume (-73 dB)
-	// n = 0 to 47 for mute
-	if (n > 127) n = 127;
-	 //Serial.print("volumeInteger, n = ");
-	 //Serial.println(n);
-	write(WM8731_REG_LHEADOUT, n | 0x180);
-	write(WM8731_REG_RHEADOUT, n | 0x80);
-	return true;
-}
 
 // Initialize local registers to CS4272 reset status
 void AudioControlCS4272::initLocalRegs(void)
