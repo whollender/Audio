@@ -393,6 +393,12 @@ void AudioOutputI2S32bitslave::isr(void)
 	audio_block_t *block;
 	uint32_t saddr, offset;
 
+	//static int i = 0;
+
+	//Serial.println("output ISR");
+	//Serial.println(i);
+	//i++;
+
 	saddr = (uint32_t)(dma.TCD->SADDR);
 	dma.clearInterrupt();
 	if (saddr < (uint32_t)i2s_tx_buffer_32bit + sizeof(i2s_tx_buffer_32bit) / 2) {
@@ -415,8 +421,8 @@ void AudioOutputI2S32bitslave::isr(void)
 		src = &block->data[offset];
 		do {
 			*dest = ((int32_t)*src) << 16;
-			src += 2;
-			dest += 4;
+			src += 1;
+			dest += 2;
 		} while (dest < end);
 		offset += AUDIO_BLOCK_SAMPLES/2;
 		if (offset < AUDIO_BLOCK_SAMPLES) {
@@ -430,7 +436,7 @@ void AudioOutputI2S32bitslave::isr(void)
 	} else {
 		do {
 			*dest = 0;
-			dest += 4;
+			dest += 2;
 		} while (dest < end);
 	}
 	dest -= AUDIO_BLOCK_SAMPLES - 1;
@@ -440,8 +446,8 @@ void AudioOutputI2S32bitslave::isr(void)
 		src = &block->data[offset];
 		do {
 			*dest = ((int32_t)*src) << 16;
-			src += 2;
-			dest += 4;
+			src += 1;
+			dest += 2;
 		} while (dest < end);
 		offset += AUDIO_BLOCK_SAMPLES/2;
 		if (offset < AUDIO_BLOCK_SAMPLES) {
@@ -455,7 +461,7 @@ void AudioOutputI2S32bitslave::isr(void)
 	} else {
 		do {
 			*dest = 0;
-			dest += 4;
+			dest += 2;
 		} while (dest < end);
 	}
 }
@@ -547,7 +553,7 @@ void AudioOutputI2S32bitslave::config_i2s(void)
 	
 
 	I2S0_TMR = 0; // Don't mask any words
-	I2S0_TCR1 = I2S_TCR1_TFW(2); // Set watermark to one word
+	I2S0_TCR1 = I2S_TCR1_TFW(1); // Set watermark to one word
 	// TODO: need to research watermark positioning a bit better
 	
 	// Setup for 24 bit left justified
@@ -579,7 +585,7 @@ void AudioOutputI2S32bitslave::config_i2s(void)
 	
 	I2S0_RMR = 0; // Don't mask any words
 
-	I2S0_RCR1 = I2S_RCR1_RFW(2); // Set watermark to one word
+	I2S0_RCR1 = I2S_RCR1_RFW(1); // Set watermark to one word
 
 	// Same settings as tx, but sync to tx
 	I2S0_RCR2 = I2S_RCR2_SYNC(1) | I2S_TCR2_BCP;

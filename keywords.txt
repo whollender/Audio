@@ -2,9 +2,12 @@ Audio	KEYWORD2
 AudioConnection	KEYWORD2
 AudioInputI2S	KEYWORD2
 AudioOutputI2S	KEYWORD2
+AudioInputI2S32bitslave	KEYWORD2
+AudioOutputI2S32bitslave	KEYWORD2
 AudioOutputSPDIF	KEYWORD2
 AudioOutputPWM	KEYWORD2
 AudioControlSGTL5000	KEYWORD2
+AudioControlCS4272	KEYWORD2
 AudioMemory	KEYWORD2
 
 AudioAnalyzeFFT256	KEYWORD2

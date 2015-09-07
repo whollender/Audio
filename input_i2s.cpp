@@ -244,7 +244,9 @@ void AudioInputI2S32bitslave::begin(void)
 
 	// TODO: Need to double check CSR reg settings for slave mode
 	I2S0_RCSR |= I2S_RCSR_RE | I2S_RCSR_BCE | I2S_RCSR_FRDE | I2S_RCSR_FR;
+	//I2S0_RCSR |= I2S_RCSR_RE | I2S_RCSR_BCE | I2S_RCSR_FR;
 	I2S0_TCSR |= I2S_TCSR_TE | I2S_TCSR_BCE; // TX clock enable, because sync'd to TX
+	//I2S0_TCSR |= I2S_TCSR_TE | I2S_TCSR_BCE | I2S_TCSR_FRDE | I2S_TCSR_FR;
 	dma.attachInterrupt(isr);
 }
 
@@ -255,6 +257,7 @@ void AudioInputI2S32bitslave::isr(void)
 	int16_t *dest_left, *dest_right;
 	audio_block_t *left, *right;
 	int32_t n;
+
 
 	//digitalWriteFast(3, HIGH);
 	daddr = (uint32_t)(dma.TCD->DADDR);
