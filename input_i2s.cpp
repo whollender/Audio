@@ -233,9 +233,9 @@ void AudioInputI2S32bitslave::begin(void)
 	dma.TCD->SLAST = 0;
 	dma.TCD->DADDR = i2s_rx_buffer_32bit;
 	dma.TCD->DOFF = 4;											   // Increment destination offset by 4 bytes each transfer
-	dma.TCD->CITER_ELINKNO = sizeof(i2s_rx_buffer_32bit) / 2;
+	dma.TCD->CITER_ELINKNO = sizeof(i2s_rx_buffer_32bit) / 4;
 	dma.TCD->DLASTSGA = -sizeof(i2s_rx_buffer_32bit);
-	dma.TCD->BITER_ELINKNO = sizeof(i2s_rx_buffer_32bit) / 2;
+	dma.TCD->BITER_ELINKNO = sizeof(i2s_rx_buffer_32bit) / 4;
 	dma.TCD->CSR = DMA_TCD_CSR_INTHALF | DMA_TCD_CSR_INTMAJOR;
 
 	dma.triggerAtHardwareEvent(DMAMUX_SOURCE_I2S0_RX);

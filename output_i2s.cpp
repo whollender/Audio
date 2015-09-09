@@ -372,9 +372,9 @@ void AudioOutputI2S32bitslave::begin(void)
 	dma.TCD->SLAST = -sizeof(i2s_tx_buffer_32bit);
 	dma.TCD->DADDR = &I2S0_TDR0;
 	dma.TCD->DOFF = 0;
-	dma.TCD->CITER_ELINKNO = sizeof(i2s_tx_buffer_32bit) / 2;
+	dma.TCD->CITER_ELINKNO = sizeof(i2s_tx_buffer_32bit) / 4;
 	dma.TCD->DLASTSGA = 0;
-	dma.TCD->BITER_ELINKNO = sizeof(i2s_tx_buffer_32bit) / 2;
+	dma.TCD->BITER_ELINKNO = sizeof(i2s_tx_buffer_32bit) / 4;
 	dma.TCD->CSR = DMA_TCD_CSR_INTHALF | DMA_TCD_CSR_INTMAJOR;
 	dma.triggerAtHardwareEvent(DMAMUX_SOURCE_I2S0_TX);
 	update_responsibility = update_setup();
