@@ -27,7 +27,7 @@
 #include "control_cs4272.h"
 #include "Wire.h"
 
-#define CS4272_ADDR 0x10 // TODO: need to double check
+#define CS4272_ADDR 0x10 
 
 // Section 8.1 Mode Control
 #define CS4272_MODE_CONTROL							(uint8_t)0x01
@@ -110,12 +110,11 @@ bool AudioControlCS4272::enable(void)
 	delay(1);
 
 	// Set ratio select for MCLK=512*LRCLK (BCLK = 64*LRCLK), and master mode
-	write(CS4272_MODE_CONTROL, CS4272_MC_RATIO_SEL(3) | CS4272_MC_MASTER_SLAVE);
+	write(CS4272_MODE_CONTROL, CS4272_MC_RATIO_SEL(2) | CS4272_MC_MASTER_SLAVE);
 
 	delay(10);
 	
 	// Release power down bit to start up codec
-	// TODO: May need other bits set in this reg
 	write(CS4272_MODE_CTRL2, CS4272_MODE_CTRL2_CTRL_PORT_EN);
 	
 	// Wait for everything to come up
