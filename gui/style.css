@@ -17,7 +17,7 @@
 body {
   font: 13px "Helvetica" !important;
   padding-top: 100px;
-  background: url("pw_maze_white.png");
+  background: url("img/pw_maze_white.png");
 }
 #dropTarget {
     position: absolute;
@@ -97,7 +97,7 @@ a.brand img {
 
 #palette {
    background: #f3f3f3;
-   width: 140px;
+   width: 160px;
    text-align: center;
    -webkit-user-select: none;
    -khtml-user-select: none;
@@ -220,7 +220,7 @@ a.brand img {
    border: 2px solid #999;
    background-position: 5% 50%;
    background-repeat: no-repeat;
-   width: 90px;
+   width: 110px;
    background-size: contain;
    position: relative;
 }
@@ -241,7 +241,7 @@ a.brand img {
    border: 1px solid #999;
 }
 .palette_port_output {
-    left:85px;
+    left:105px;
 }
 
 .palette_node:hover .palette_port {
@@ -286,7 +286,7 @@ a.brand img {
 }
 #sidebar-separator {
     width: 15px;
-    background: url(grip.png) no-repeat 50% 50%;
+    background: url("img/grip.png") no-repeat 50% 50%;
     position: absolute;
     right: 316px; top: 5px; bottom:10px;
     cursor: col-resize;
@@ -867,7 +867,7 @@ i.spinner {
     line-height: 14px;
     vertical-align: text-top;
     margin-top: 0px;
-    background: url(spin.svg) no-repeat 50% 50%;
+    background: url("img/spin.svg") no-repeat 50% 50%;
     background-size: contain
 }
     

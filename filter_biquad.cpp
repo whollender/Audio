@@ -27,6 +27,8 @@
 #include "filter_biquad.h"
 #include "utility/dspinst.h"
 
+#if defined(KINETISK)
+
 void AudioFilterBiquad::update(void)
 {
 	audio_block_t *block;
@@ -63,7 +65,7 @@ void AudioFilterBiquad::update(void)
 			sum = signed_multiply_accumulate_32x16b(sum, a1, out2);
 			sum = signed_multiply_accumulate_32x16t(sum, a2, aprev);
 			bprev = in2;
-			aprev = pack_16x16(
+			aprev = pack_16b_16b(
 				signed_saturate_rshift(sum, 16, 14), out2);
 			sum &= 0x3FFF;
 			bprev = in2;
@@ -89,8 +91,21 @@ void AudioFilterBiquad::setCoefficients(uint32_t stage, const int *coefficients)
 	*dest++ = *coefficients++;
 	*dest++ = *coefficients++ * -1;
 	*dest++ = *coefficients++ * -1;
-	*dest++ = 0;
-	*dest++ = 0;
+	//*dest++ = 0;
+	//*dest++ = 0;  // clearing filter state causes loud pop
+	dest += 2;
 	*dest   &= 0x80000000;
 	__enable_irq();
 }
+
+#elif defined(KINETISL)
+
+void AudioFilterBiquad::update(void)
+{
+        audio_block_t *block;
+
+	block = receiveReadOnly();
+	if (block) release(block);
+}
+
+#endif

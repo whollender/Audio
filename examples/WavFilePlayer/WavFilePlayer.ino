@@ -29,6 +29,7 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
+#include <SerialFlash.h>
 
 AudioPlaySdWav           playWav1;
 // Use one of these 3 output types: Digital I2S, Digital S/PDIF, or Analog DAC
@@ -97,7 +98,7 @@ void playFile(const char *filename)
 
 
 void loop() {
-  playFile("SDTEST1.WAV");
+  playFile("SDTEST1.WAV");  // filenames are always uppercase 8.3 format
   delay(500);
   playFile("SDTEST2.WAV");
   delay(500);

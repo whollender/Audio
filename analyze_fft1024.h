@@ -27,6 +27,7 @@
 #ifndef analyze_fft1024_h_
 #define analyze_fft1024_h_
 
+#include "Arduino.h"
 #include "AudioStream.h"
 #include "arm_math.h"
 
@@ -74,7 +75,7 @@ public:
 		uint32_t sum = 0;
 		do {
 			sum += output[binFirst++];
-		} while (binFirst < binLast);
+		} while (binFirst <= binLast);
 		return (float)sum * (1.0 / 16384.0);
 	}
 	void averageTogether(uint8_t n) {

@@ -30,7 +30,6 @@ RED.view = (function() {
 		moveTouchCenter = [],
 		touchStartTime = 0;
 
-
 	var activeWorkspace = 0;
 	var workspaceScrollPositions = {};
 
@@ -60,7 +59,7 @@ RED.view = (function() {
 		"yellow": "#F9DF31",
 		"blue":   "#53A3F3",
 		"grey":   "#d3d3d3"
-	}
+	};
 
 	var outer = d3.select("#chart")
 		.append("svg:svg")
@@ -108,7 +107,7 @@ RED.view = (function() {
 				moveTouchCenter = [
 					touch1['pageX']+(b/2),
 					touch1['pageY']+(a/2)
-				]
+				];
 				startTouchDistance = Math.sqrt((a*a)+(b*b));
 			} else {
 				var obj = d3.select(document.body);
@@ -191,38 +190,39 @@ RED.view = (function() {
 		.attr('height', space_height)
 		.attr('fill','#fff');
 
-	//var gridScale = d3.scale.linear().range([0,2000]).domain([0,2000]);
-	//var grid = vis.append('g');
-	//
-	//grid.selectAll("line.horizontal").data(gridScale.ticks(100)).enter()
-	//    .append("line")
-	//        .attr(
-	//        {
-	//            "class":"horizontal",
-	//            "x1" : 0,
-	//            "x2" : 2000,
-	//            "y1" : function(d){ return gridScale(d);},
-	//            "y2" : function(d){ return gridScale(d);},
-	//            "fill" : "none",
-	//            "shape-rendering" : "crispEdges",
-	//            "stroke" : "#eee",
-	//            "stroke-width" : "1px"
-	//        });
-	//grid.selectAll("line.vertical").data(gridScale.ticks(100)).enter()
-	//    .append("line")
-	//        .attr(
-	//        {
-	//            "class":"vertical",
-	//            "y1" : 0,
-	//            "y2" : 2000,
-	//            "x1" : function(d){ return gridScale(d);},
-	//            "x2" : function(d){ return gridScale(d);},
-	//            "fill" : "none",
-	//            "shape-rendering" : "crispEdges",
-	//            "stroke" : "#eee",
-	//            "stroke-width" : "1px"
-	//        });
+	var gridScale = d3.scale.linear().range([0,2000]).domain([0,2000]);
+	/*
+	var grid = vis.append('g');
 
+	grid.selectAll("line.horizontal").data(gridScale.ticks(100)).enter()
+	    .append("line")
+	        .attr(
+	        {
+	            "class":"horizontal",
+	            "x1" : 0,
+	            "x2" : 2000,
+	            "y1" : function(d){ return gridScale(d);},
+	            "y2" : function(d){ return gridScale(d);},
+	            "fill" : "none",
+	            "shape-rendering" : "crispEdges",
+	            "stroke" : "#eee",
+	            "stroke-width" : "1px"
+	        });
+	grid.selectAll("line.vertical").data(gridScale.ticks(100)).enter()
+	     .append("line")
+	        .attr(
+	        {
+	            "class":"vertical",
+	            "y1" : 0,
+	            "y2" : 2000,
+	            "x1" : function(d){ return gridScale(d);},
+	            "x2" : function(d){ return gridScale(d);},
+	            "fill" : "none",
+	            "shape-rendering" : "crispEdges",
+		        "stroke" : "#eee",
+	            "stroke-width" : "1px"
+	        });
+*/
 
 	var drag_line = vis.append("svg:path").attr("class", "drag_line");
 
@@ -568,6 +568,10 @@ RED.view = (function() {
 				nn.type = selected_tool;
 				nn._def = RED.nodes.getType(nn.type);
 				nn.id = RED.nodes.cppName(nn);
+
+				nn._def.defaults = nn._def.defaults ? nn._def.defaults  : {};
+				nn._def.defaults.name = { value: nn.id };
+
 				nn.outputs = nn._def.outputs;
 				nn.changed = true;
 
@@ -729,8 +733,8 @@ RED.view = (function() {
 					node.x = 25
 				}
 				var rmlinks = RED.nodes.remove(node.id);
-				for (var i=0; i < rmlinks.length; i++) {
-					var link = rmlinks[i];
+				for (var j=0; j < rmlinks.length; j++) {
+					var link = rmlinks[j];
 					//console.log("delete link: " + link.source.id + ":" + link.sourcePort
 					//	+ " -> " + link.target.id + ":" + link.targetPort);
 					if (link.source == node) {
@@ -760,7 +764,7 @@ RED.view = (function() {
 				.on("mouseup", (function(d,n){return function(d){portMouseUp(d,1,n);}})(rect, n))
 				.on("touchend", (function(d,n){return function(d){portMouseUp(d,1,n);}})(rect, n))
 				.on("mouseover",function(d) { var port = d3.select(this); port.classed("port_hovered",(mouse_mode!=RED.state.JOINING || mousedown_port_type != 1 ));})
-				.on("mouseout",function(d) { var port = d3.select(this); port.classed("port_hovered",false);})
+				.on("mouseout",function(d) { var port = d3.select(this); port.classed("port_hovered",false);});
 			RED.nodes.removeLink(selected_link);
 			removedLinks.push(selected_link);
 			setDirty(true);
@@ -783,7 +787,6 @@ RED.view = (function() {
 			RED.notify(moving_set.length+" node"+(moving_set.length>1?"s":"")+" copied");
 		}
 	}
-
 
 	function calculateTextWidth(str) {
 		var sp = document.createElement("span");
@@ -987,6 +990,7 @@ RED.view = (function() {
 		RED.touch.radialMenu.show(obj,pos,options);
 		resetMouseVars();
 	}
+
 	function redraw() {
 		vis.attr("transform","scale("+scaleFactor+")");
 		outer.attr("width", space_width*scaleFactor).attr("height", space_height*scaleFactor);
@@ -1003,7 +1007,7 @@ RED.view = (function() {
 					node.attr("id",d.id);
 					//var l = d._def.label;
 					//l = (typeof l === "function" ? l.call(d) : l)||"";
-					var l = d.id;
+					var l = d.name ? d.name : d.id;
 					d.w = Math.max(node_width,calculateTextWidth(l)+(d._def.inputs>0?7:0) );
 					d.h = Math.max(node_height,(Math.max(d.outputs,d._def.inputs)||0) * 15);
 
@@ -1123,7 +1127,7 @@ RED.view = (function() {
 
 						if ("right" == d._def.align) {
 							icon_group.attr('class','node_icon_group node_icon_group_'+d._def.align);
-							icon_shade_border.attr("d",function(d) { return "M 0 1 l 0 "+(d.h-2)})
+							icon_shade_border.attr("d",function(d) { return "M 0 1 l 0 "+(d.h-2)});
 							//icon.attr('class','node_icon node_icon_'+d._def.align);
 							//icon.attr('class','node_icon_shade node_icon_shade_'+d._def.align);
 							//icon.attr('class','node_icon_shade_border node_icon_shade_border_'+d._def.align);
@@ -1149,7 +1153,7 @@ RED.view = (function() {
 							//    icon_shade.attr("x",function(d){return d.w-30});
 							//    icon_shade_border.attr("d",function(d){return "M "+(d.w-30)+" 1 l 0 "+(d.h-2);});
 							//}
-						}
+						};
 						
 						//icon.style("pointer-events","none");
 						icon_group.style("pointer-events","none");
@@ -1225,7 +1229,7 @@ RED.view = (function() {
 						if (d.resize) {
 							//var l = d._def.label;
 							//l = (typeof l === "function" ? l.call(d) : l)||"";
-							var l = d.id;
+							var l = d.name ? d.name : d.id;
 							d.w = Math.max(node_width,calculateTextWidth(l)+(d._def.inputs>0?7:0) );
 							d.h = Math.max(node_height,(Math.max(d.outputs,d._def.inputs)||0) * 15);
 						}
@@ -1277,8 +1281,9 @@ RED.view = (function() {
 										return d._def.label;
 									}
 								}
-								return ""; */
-								return d.id;
+								return "n.a.";
+								 */
+								return d.name ? d.name : d.id;
 						})
 							.attr('y', function(d){return (d.h/2)-1;})
 							.attr('class',function(d){
@@ -1337,7 +1342,7 @@ RED.view = (function() {
 								}
 							}
 							return ""; */
-							return d.id;
+							return d.name ? d.name : d.id;
 						});
 						if (!showStatus || !d.status) {
 							thisNode.selectAll('.node_status_group').style("display","none");
@@ -1373,6 +1378,7 @@ RED.view = (function() {
 						d.dirty = false;
 					}
 			});
+
 		}
 
 		var link = vis.selectAll(".link").data(RED.nodes.links.filter(function(d) { return d.source.z == activeWorkspace && d.target.z == activeWorkspace }),function(d) { return d.source.id+":"+d.sourcePort+":"+d.target.id+":"+d.targetPort;});
@@ -1404,7 +1410,7 @@ RED.view = (function() {
 
 		link.exit().remove();
 
-		var links = vis.selectAll(".link_path")
+		var links = vis.selectAll(".link_path");
 		links.attr("d",function(d){
 				var numOutputs = d.source.outputs || 1;
 				var sourcePort = d.sourcePort || 0;
@@ -1438,7 +1444,7 @@ RED.view = (function() {
 					" C "+(d.x1+scale*node_width)+" "+(d.y1+scaleY*node_height)+" "+
 					(d.x2-scale*node_width)+" "+(d.y2-scaleY*node_height)+" "+
 					(d.x2)+" "+d.y2;
-		})
+		});
 
 		link.classed("link_selected", function(d) { return d === selected_link || d.selected; });
 		link.classed("link_unknown",function(d) { return d.target.type == "unknown" || d.source.type == "unknown"});
@@ -1448,7 +1454,74 @@ RED.view = (function() {
 		}
 	}
 
+	function doSort (arr) {
+		arr.sort(function (a, b) {
+			var nameA = a.name ? a.name : a.id;
+			var nameB = b.name ? b.name : b.id;
+			return nameA.localeCompare(nameB, 'en', {numeric: 'true'});
+		});
+	}
+
+	function setNewCoords (lastX, lastY, arr) {
+		var x = lastX;
+		var y = lastY;
+		for (var i = 0; i < arr.length; i++) {
+			var node = arr[i];
+			var name = node.name ? node.name : node.id;
+			var def = node._def;
+			var dH = Math.max(RED.view.defaults.height, (Math.max(def.outputs, def.inputs) || 0) * 15);
+			x = lastX + Math.max(RED.view.defaults.width, RED.view.calculateTextWidth(name) + (def.inputs > 0 ? 7 : 0));
+			node.x = x;
+			node.y = y + dH/2;
+			y = y + dH + 15;
+			node.dirty = true;
+		}
+		return { x: x, y: y };
+	}
+
+	function arrangeAll() {
+		var ioNoIn = [];
+		var ioInOut = [];
+		var ioMultiple = [];
+		var ioNoOut = [];
+		var ioCtrl = [];
+
+		RED.nodes.eachNode(function (node) {
+
+			if (node._def.inputs == 0 && node._def.outputs == 0) {
+				ioCtrl.push(node);
+			} else if (node._def.inputs == 0) {
+				ioNoIn.push(node);
+			} else if (node._def.outputs == 0) {
+				ioNoOut.push(node);
+			} else if (node._def.inputs == 1 && node._def.outputs == 1) {
+				ioInOut.push(node);
+			} else if (node._def.inputs > 1) {
+				ioMultiple.push(node);
+			}
+		});
+
+		var cols = new Array(ioNoIn, ioInOut, ioMultiple, ioNoOut, ioCtrl);
+		var lowestY = 0;
+
+		for (var i = 0; i < cols.length; i++) {
+			var dX = ((i < cols.length - 1) ?  i : 0) * (RED.view.defaults.width * 2) + (RED.view.defaults.width / 2) + 15;
+			var dY = ((i < cols.length - 1) ?  (RED.view.defaults.height / 4) : lowestY) + 15;
+			var startX = 0;
+			var startY = 0;
+
+			doSort(cols[i]);
+			var last = setNewCoords(startX + dX, startY + dY, cols[i]);
+			lowestY = Math.max(lowestY, last.y);
+			startX = ((i < cols.length - 1) ? last.x : 0) + (RED.view.defaults.width) * 4;
+			startY = lowestY + (RED.view.defaults.height * 1.5);
+		}
+		RED.storage.update();
+		redraw();
+	}
+
 	RED.keyboard.add(/* z */ 90,{ctrl:true},function(){RED.history.pop();});
+	RED.keyboard.add(/* o */ 79,{ctrl:true},function(){arrangeAll();d3.event.preventDefault();});
 	RED.keyboard.add(/* a */ 65,{ctrl:true},function(){selectAll();d3.event.preventDefault();});
 	RED.keyboard.add(/* = */ 187,{ctrl:true},function(){zoomIn();d3.event.preventDefault();});
 	RED.keyboard.add(/* - */ 189,{ctrl:true},function(){zoomOut();d3.event.preventDefault();});
@@ -1475,8 +1548,31 @@ RED.view = (function() {
 	 *  - attached to mouse for placing - 'IMPORT_DRAGGING'
 	 */
 	function importNodes(newNodesStr,touchImport) {
+		
+		var createNewIds = true;
+		var useStorage = false;
+
+		if ($("#node-input-arduino").prop('checked') === true) {
+			var nodesJSON = RED.nodes.cppToJSON(newNodesStr);
+			if (nodesJSON.count <= 0) {
+				var note = "No nodes imported!";
+				RED.notify("<strong>Note</strong>: " + note, "warning");
+			}
+
+			newNodesStr = nodesJSON.data;
+			createNewIds = false;
+
+			if (useStorage) {
+				RED.storage.clear();
+				localStorage.setItem("audio_library_guitool", newNodesStr);
+				RED.storage.load();
+				redraw();
+				return;
+			}
+		}
+
 		try {
-			var result = RED.nodes.import(newNodesStr,true);
+			var result = RED.nodes.import(newNodesStr,createNewIds);
 			if (result) {
 				var new_nodes = result[0];
 				var new_links = result[1];
@@ -1546,33 +1642,37 @@ RED.view = (function() {
 	function showExportNodesDialog() {
 		mouse_mode = RED.state.EXPORT;
 		var nns = RED.nodes.createExportableNodeSet(moving_set);
-		$("#dialog-form").html($("script[data-template-name='export-clipboard-dialog']").html());
-		$("#node-input-export").val(JSON.stringify(nns));
-		$("#node-input-export").focus(function() {
+		//$("#dialog-form").html(getForm("dialog-form", "export-clipboard-dialog"));
+		var frm = getForm("dialog-form", "export-clipboard-dialog", function (d, f) {
+			$("#node-input-export").val(JSON.stringify(nns)).focus(function() {
 				var textarea = $(this);
 				textarea.select();
 				textarea.mouseup(function() {
 						textarea.unbind("mouseup");
 						return false;
 				});
-		});
+			}).focus();
 		$( "#dialog" ).dialog("option","title","Export nodes to clipboard").dialog( "open" );
-		$("#node-input-export").focus();
+		});
 	}
 
 	function showExportNodesLibraryDialog() {
 		mouse_mode = RED.state.EXPORT;
 		var nns = RED.nodes.createExportableNodeSet(moving_set);
-		$("#dialog-form").html($("script[data-template-name='export-library-dialog']").html());
+		//$("#dialog-form").html(this.getForm('export-library-dialog'));
+		getForm("dialog-form", "export-library-dialog", function(d, f) {
 		$("#node-input-filename").attr('nodes',JSON.stringify(nns));
 		$( "#dialog" ).dialog("option","title","Export nodes to library").dialog( "open" );
+		});
 	}
 
 	function showImportNodesDialog() {
 		mouse_mode = RED.state.IMPORT;
-		$("#dialog-form").html($("script[data-template-name='import-dialog']").html());
+		//$("#dialog-form").html(this.getForm('import-dialog'));
+		getForm("dialog-form", "import-dialog", function(d, f) {
 		$("#node-input-import").val("");
 		$( "#dialog" ).dialog("option","title","Import nodes").dialog( "open" );
+		});
 	}
 
 	function showRenameWorkspaceDialog(id) {
@@ -1591,6 +1691,35 @@ RED.view = (function() {
 
 		$( "#node-input-workspace-name" ).val(ws.label);
 		$( "#node-dialog-rename-workspace" ).dialog("open");
+	}
+
+	function getForm(formId, key, callback) {
+		// server test switched off - test purposes only
+		var patt = new RegExp(/^[http|https]/);
+		var server = false && patt.test(location.protocol);
+		var form = $("<h2>No form found.</h2>");
+
+		if (!server) {
+			data = $("script[data-template-name|='" + key + "']").html();
+			form = $("#" + formId);
+			$(form).empty();
+			$(form).append(data);
+			if(typeof callback == 'function') {
+				callback.call(this, form);
+			}
+		} else {
+			var frmPlugin = "resources/form/" + key + ".html";
+			$.get(frmPlugin, function(data) {
+				form = $("#" + formId);
+				$(form).empty();
+				$(form).append(data);
+				if(typeof callback == 'function') {
+					callback.call(this, form);
+				}
+			});
+		}
+
+		return form;
 	}
 
 	$("#node-dialog-rename-workspace form" ).submit(function(e) { e.preventDefault();});
@@ -1712,6 +1841,12 @@ RED.view = (function() {
 			RED.nodes.eachNode(function(n) { n.dirty = true;});
 			//TODO: subscribe/unsubscribe here
 			redraw();
+		},
+		getForm: getForm,
+		calculateTextWidth: calculateTextWidth,
+		defaults: {
+			width: node_width,
+			height: node_height
 		}
 	};
 })();

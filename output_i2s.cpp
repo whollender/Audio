@@ -25,6 +25,7 @@
  */
 
 #include "output_i2s.h"
+#include "memcpy_audio.h"
 
 audio_block_t * AudioOutputI2S::block_left_1st = NULL;
 audio_block_t * AudioOutputI2S::block_right_1st = NULL;
@@ -47,6 +48,7 @@ void AudioOutputI2S::begin(void)
 	config_i2s();
 	CORE_PIN22_CONFIG = PORT_PCR_MUX(6); // pin 22, PTC1, I2S0_TXD0
 
+#if defined(KINETISK)
 	dma.TCD->SADDR = i2s_tx_buffer;
 	dma.TCD->SOFF = 2;
 	dma.TCD->ATTR = DMA_TCD_ATTR_SSIZE(1) | DMA_TCD_ATTR_DSIZE(1);
@@ -58,6 +60,7 @@ void AudioOutputI2S::begin(void)
 	dma.TCD->DLASTSGA = 0;
 	dma.TCD->BITER_ELINKNO = sizeof(i2s_tx_buffer) / 2;
 	dma.TCD->CSR = DMA_TCD_CSR_INTHALF | DMA_TCD_CSR_INTMAJOR;
+#endif
 	dma.triggerAtHardwareEvent(DMAMUX_SOURCE_I2S0_TX);
 	update_responsibility = update_setup();
 	dma.enable();
@@ -69,12 +72,67 @@ void AudioOutputI2S::begin(void)
 
 void AudioOutputI2S::isr(void)
 {
+#if defined(KINETISK)
+	int16_t *dest;
+	audio_block_t *blockL, *blockR;
+	uint32_t saddr, offsetL, offsetR;
+
+	saddr = (uint32_t)(dma.TCD->SADDR);
+	dma.clearInterrupt();
+	if (saddr < (uint32_t)i2s_tx_buffer + sizeof(i2s_tx_buffer) / 2) {
+		// DMA is transmitting the first half of the buffer
+		// so we must fill the second half
+		dest = (int16_t *)&i2s_tx_buffer[AUDIO_BLOCK_SAMPLES/2];
+		if (AudioOutputI2S::update_responsibility) AudioStream::update_all();
+	} else {
+		// DMA is transmitting the second half of the buffer
+		// so we must fill the first half
+		dest = (int16_t *)i2s_tx_buffer;
+	}
+
+	blockL = AudioOutputI2S::block_left_1st;
+	blockR = AudioOutputI2S::block_right_1st;
+	offsetL = AudioOutputI2S::block_left_offset;
+	offsetR = AudioOutputI2S::block_right_offset;
+
+	if (blockL && blockR) {
+		memcpy_tointerleaveLR(dest, blockL->data + offsetL, blockR->data + offsetR);
+		offsetL += AUDIO_BLOCK_SAMPLES / 2;
+		offsetR += AUDIO_BLOCK_SAMPLES / 2;
+	} else if (blockL) {
+		memcpy_tointerleaveL(dest, blockL->data + offsetL);
+		offsetL += AUDIO_BLOCK_SAMPLES / 2;
+	} else if (blockR) {
+		memcpy_tointerleaveR(dest, blockR->data + offsetR);
+		offsetR += AUDIO_BLOCK_SAMPLES / 2;
+	} else {
+		memset(dest,0,AUDIO_BLOCK_SAMPLES * 2);
+		return;
+	}
+
+	if (offsetL < AUDIO_BLOCK_SAMPLES) {
+		AudioOutputI2S::block_left_offset = offsetL;
+	} else {
+		AudioOutputI2S::block_left_offset = 0;
+		AudioStream::release(blockL);
+		AudioOutputI2S::block_left_1st = AudioOutputI2S::block_left_2nd;
+		AudioOutputI2S::block_left_2nd = NULL;
+	}
+	if (offsetR < AUDIO_BLOCK_SAMPLES) {
+		AudioOutputI2S::block_right_offset = offsetR;
+	} else {
+		AudioOutputI2S::block_right_offset = 0;
+		AudioStream::release(blockR);
+		AudioOutputI2S::block_right_1st = AudioOutputI2S::block_right_2nd;
+		AudioOutputI2S::block_right_2nd = NULL;
+	}
+#else
 	const int16_t *src, *end;
 	int16_t *dest;
 	audio_block_t *block;
 	uint32_t saddr, offset;
 
-	saddr = (uint32_t)(dma.TCD->SADDR);
+	saddr = (uint32_t)(dma.CFG->SAR);
 	dma.clearInterrupt();
 	if (saddr < (uint32_t)i2s_tx_buffer + sizeof(i2s_tx_buffer) / 2) {
 		// DMA is transmitting the first half of the buffer
@@ -89,7 +147,6 @@ void AudioOutputI2S::isr(void)
 		end = (int16_t *)&i2s_tx_buffer[AUDIO_BLOCK_SAMPLES/2];
 	}
 
-	// TODO: these copy routines could be merged and optimized, maybe in assembly?
 	block = AudioOutputI2S::block_left_1st;
 	if (block) {
 		offset = AudioOutputI2S::block_left_offset;
@@ -137,6 +194,7 @@ void AudioOutputI2S::isr(void)
 			dest += 2;
 		} while (dest < end);
 	}
+#endif
 }
 
 
@@ -209,6 +267,20 @@ void AudioOutputI2S::update(void)
 #elif F_CPU == 168000000
   #define MCLK_MULT 8
   #define MCLK_DIV  119
+#elif F_CPU == 180000000
+  #define MCLK_MULT 16
+  #define MCLK_DIV  255
+  #define MCLK_SRC  0
+#elif F_CPU == 192000000
+  #define MCLK_MULT 1
+  #define MCLK_DIV  17
+#elif F_CPU == 216000000
+  #define MCLK_MULT 8
+  #define MCLK_DIV  153
+  #define MCLK_SRC  0
+#elif F_CPU == 240000000
+  #define MCLK_MULT 4
+  #define MCLK_DIV  85
 #elif F_CPU == 16000000
   #define MCLK_MULT 12
   #define MCLK_DIV  17
@@ -216,10 +288,12 @@ void AudioOutputI2S::update(void)
   #error "This CPU Clock Speed is not supported by the Audio library";
 #endif
 
+#ifndef MCLK_SRC
 #if F_CPU >= 20000000
   #define MCLK_SRC  3  // the PLL
 #else
   #define MCLK_SRC  0  // system clock
+#endif
 #endif
 
 void AudioOutputI2S::config_i2s(void)
@@ -234,6 +308,7 @@ void AudioOutputI2S::config_i2s(void)
 
 	// enable MCLK output
 	I2S0_MCR = I2S_MCR_MICS(MCLK_SRC) | I2S_MCR_MOE;
+	while (I2S0_MCR & I2S_MCR_DUF) ;
 	I2S0_MDR = I2S_MDR_FRACT((MCLK_MULT-1)) | I2S_MDR_DIVIDE((MCLK_DIV-1));
 
 	// configure transmitter
@@ -276,7 +351,7 @@ void AudioOutputI2Sslave::begin(void)
 
 	AudioOutputI2Sslave::config_i2s();
 	CORE_PIN22_CONFIG = PORT_PCR_MUX(6); // pin 22, PTC1, I2S0_TXD0
-
+#if defined(KINETISK)
 	dma.TCD->SADDR = i2s_tx_buffer;
 	dma.TCD->SOFF = 2;
 	dma.TCD->ATTR = DMA_TCD_ATTR_SSIZE(1) | DMA_TCD_ATTR_DSIZE(1);
@@ -288,7 +363,7 @@ void AudioOutputI2Sslave::begin(void)
 	dma.TCD->DLASTSGA = 0;
 	dma.TCD->BITER_ELINKNO = sizeof(i2s_tx_buffer) / 2;
 	dma.TCD->CSR = DMA_TCD_CSR_INTHALF | DMA_TCD_CSR_INTMAJOR;
-
+#endif
 	dma.triggerAtHardwareEvent(DMAMUX_SOURCE_I2S0_TX);
 	update_responsibility = update_setup();
 	dma.enable();

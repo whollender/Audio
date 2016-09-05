@@ -25,6 +25,7 @@ The audio board uses the following pins.
 #include <Wire.h>
 #include <SD.h>
 #include <SPI.h>
+#include <SerialFlash.h>
 #include <Bounce.h>
 #include "filters.h"
 
@@ -61,7 +62,7 @@ AudioControlSGTL5000 audioShield;
 
 struct fir_filter {
   short *coeffs;
-  short num_coeffs;
+  short num_coeffs;    // num_coeffs must be an even number, 4 or higher
 };
 
 // index of current filter. Start with the low pass.

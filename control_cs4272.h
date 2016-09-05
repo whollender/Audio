@@ -1,6 +1,9 @@
 /* Audio Library for Teensy 3.X
  * Copyright (c) 2014, Paul Stoffregen, paul@pjrc.com
  *
+ * https://hackaday.io/project/5912-teensy-super-audio-board
+ * https://github.com/whollender/Audio/tree/SuperAudioBoard
+ *
  * Development of this audio library was funded by PJRC.COM, LLC by sales of
  * Teensy and Audio Adaptor boards.  Please support PJRC's efforts to develop
  * open source software by purchasing Teensy or other PJRC products.

@@ -24,6 +24,7 @@
 #ifndef output_SPDIF_h_
 #define output_SPDIF_h_
 
+#include "Arduino.h"
 #include "AudioStream.h"
 #include "DMAChannel.h"
 
@@ -34,6 +35,7 @@ public:
 	virtual void update(void);
 	void begin(void);
 	friend class AudioInputSPDIF;
+	static void mute_PCM(const bool mute);
 protected:
 	AudioOutputSPDIF(int dummy): AudioStream(2, inputQueueArray) {}
 	static void config_SPDIF(void);
@@ -43,6 +45,7 @@ protected:
 	static DMAChannel dma;
 	static void isr(void);
 private:
+	static uint32_t vucp;
 	static audio_block_t *block_left_2nd;
 	static audio_block_t *block_right_2nd;
 	static uint16_t block_left_offset;

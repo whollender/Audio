@@ -44,11 +44,16 @@ var RED = (function() {
 		RED.view.importNodes(data);
 		event.preventDefault();
 	});
+	function make_name(n) {
+		var name = (n.name ? n.name : n.id);
+		name = name.replace(" ", "_").replace("+", "_").replace("-", "_");
+		return name
+	}
 
 	function save(force) {
 		RED.storage.update();
 
-		if (1) {
+		if (RED.nodes.hasIO()) {
 			var nns = RED.nodes.createCompleteNodeSet();
 			// sort by horizontal position, plus slight vertical position,
 			// for well defined update order that follows signal flow
@@ -56,7 +61,7 @@ var RED = (function() {
 			//console.log(JSON.stringify(nns));
 
 			var cpp = "#include <Audio.h>\n#include <Wire.h>\n"
-				+ "#include <SPI.h>\n#include <SD.h>\n\n"
+				+ "#include <SPI.h>\n#include <SD.h>\n#include <SerialFlash.h>\n\n"
 				+ "// GUItool: begin automatically generated code\n";
 			// generate code for all audio processing nodes
 			for (var i=0; i<nns.length; i++) {
@@ -65,7 +70,8 @@ var RED = (function() {
 				if (node && (node.outputs > 0 || node._def.inputs > 0)) {
 					cpp += n.type + " ";
 					for (var j=n.type.length; j<24; j++) cpp += " ";
-					cpp += n.id + "; ";
+					var name = make_name(n)
+					cpp += name + "; ";
 					for (var j=n.id.length; j<14; j++) cpp += " ";
 					cpp += "//xy=" + n.x + "," + n.y + "\n";
 				}
@@ -86,10 +92,12 @@ var RED = (function() {
 									cpp += "AudioConnection          patchCord" + cordcount + "(";
 									var src = RED.nodes.node(n.id);
 									var dst = RED.nodes.node(parts[0]);
+									var src_name = make_name(src);
+									var dst_name = make_name(dst);
 									if (j == 0 && parts[1] == 0 && src && src.outputs == 1 && dst && dst._def.inputs == 1) {
-										cpp += n.id + ", " + parts[0];
+										cpp += src_name + ", " + parts[0];
 									} else {
-										cpp += n.id + ", " + j + ", " + parts[0] + ", " + parts[1];
+										cpp += src_name + ", " + j + ", " + dst_name + ", " + parts[1];
 									}
 									cpp += ");\n";
 									cordcount++;
@@ -115,19 +123,32 @@ var RED = (function() {
 			//console.log(cpp);
 
 			RED.view.state(RED.state.EXPORT);
-			$("#dialog-form").html($("script[data-template-name='export-clipboard-dialog']").html());
-			$("#node-input-export").val(cpp);
-			$("#node-input-export").focus(function() {
+			RED.view.getForm('dialog-form', 'export-clipboard-dialog', function (d, f) {
+				$("#node-input-export").val(cpp).focus(function() {
 				var textarea = $(this);
 				textarea.select();
 				textarea.mouseup(function() {
 					textarea.unbind("mouseup");
 					return false;
 				});
-			});
+				}).focus();
 			$( "#dialog" ).dialog("option","title","Export to Arduino").dialog( "open" );
-			$("#node-input-export").focus();
+			});
 			//RED.view.dirty(false);
+		} else {
+			$( "#node-dialog-error-deploy" ).dialog({
+				title: "Error exporting data to Arduino IDE",
+				modal: true,
+				autoOpen: false,
+				width: 410,
+				height: 245,
+				buttons: [{
+					text: "Ok",
+					click: function() {
+						$( this ).dialog( "close" );
+					}
+				}]
+			}).dialog("open");
 		}
 	}
 
@@ -169,24 +190,20 @@ var RED = (function() {
 	}
 
 	function loadNodes() {
-		$.get('list.html', function(data) {
-			$("body").append(data);
-			$(".palette-spinner").hide();
 			$(".palette-scroll").show();
 			$("#palette-search").show();
 			RED.storage.load();
 			RED.view.redraw();
 			setTimeout(function() {
 				$("#btn-deploy").removeClass("disabled").addClass("btn-danger");
+				$("#btn-import").removeClass("disabled").addClass("btn-success");
 			}, 1500);
 			$('#btn-deploy').click(function() { save(); });
 			// if the query string has ?info=className, populate info tab
 			var info = getQueryVariable("info");
 			if (info) {
-				$("#tab-info").html('<div class="node-help">'
-					+($("script[data-help-name|='"+info+"']").html()||"")+"</div>");
+				RED.sidebar.info.setHelpContent('', info);
 			}
-		}, "html");
 	}
 
 	$('#btn-node-status').click(function() {toggleStatus();});
@@ -217,8 +234,40 @@ var RED = (function() {
 	}
 
 	$(function() {
-		RED.keyboard.add(/* ? */ 191,{shift:true},function(){showHelp();d3.event.preventDefault();});
-		loadNodes();
+		$(".palette-spinner").show();
+
+		// server test switched off - test purposes only
+		var patt = new RegExp(/^[http|https]/);
+		var server = false && patt.test(location.protocol);
+
+		if (!server) {
+			var data = $.parseJSON($("script[data-container-name|='NodeDefinitions']").html());
+			var nodes = data["nodes"];
+			$.each(nodes, function (key, val) {
+				RED.nodes.registerType(val["type"], val["data"]);
+			});
+			RED.keyboard.add(/* ? */ 191, {shift: true}, function () {
+				showHelp();
+				d3.event.preventDefault();
+			});
+			loadNodes();
+			$(".palette-spinner").hide();
+		} else {
+			$.ajaxSetup({beforeSend: function(xhr){
+				if (xhr.overrideMimeType) {
+					xhr.overrideMimeType("application/json");
+				}
+			}});
+			$.getJSON( "resources/nodes_def.json", function( data ) {
+				var nodes = data["nodes"];
+				$.each(nodes, function(key, val) {
+					RED.nodes.registerType(val["type"], val["data"]);
+				});
+				RED.keyboard.add(/* ? */ 191,{shift:true},function(){showHelp();d3.event.preventDefault();});
+				loadNodes();
+				$(".palette-spinner").hide();
+			})
+		}
 	});
 
 	return {

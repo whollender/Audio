@@ -31,7 +31,8 @@
 DMAMEM static uint16_t analog_rx_buffer[AUDIO_BLOCK_SAMPLES];
 audio_block_t * AudioInputAnalog::block_left = NULL;
 uint16_t AudioInputAnalog::block_offset = 0;
-uint16_t AudioInputAnalog::dc_average = 0;
+int32_t AudioInputAnalog::dc_average_hist[16];
+int32_t AudioInputAnalog::current_dc_average_index = 0;
 bool AudioInputAnalog::update_responsibility = false;
 DMAChannel AudioInputAnalog::dma(false);
 
@@ -50,9 +51,12 @@ void AudioInputAnalog::init(uint8_t pin)
 	for (i=0; i < 1024; i++) {
 		sum += analogRead(pin);
 	}
-	dc_average = sum >> 10;
+	for (i = 0; i < 16; i++) {
+		dc_average_hist[i] = sum >> 10;
+	}
 
 	// set the programmable delay block to trigger the ADC at 44.1 kHz
+#if defined(KINETISK)
 	if (!(SIM_SCGC6 & SIM_SCGC6_PDB)
 	  || (PDB0_SC & PDB_CONFIG) != PDB_CONFIG
 	  || PDB0_MOD != PDB_PERIOD
@@ -65,12 +69,13 @@ void AudioInputAnalog::init(uint8_t pin)
 		PDB0_SC = PDB_CONFIG | PDB_SC_SWTRIG;
 		PDB0_CH0C1 = 0x0101;
 	}
-
+#endif
 	// enable the ADC for hardware trigger and DMA
 	ADC0_SC2 |= ADC_SC2_ADTRG | ADC_SC2_DMAEN;
 
 	// set up a DMA channel to store the ADC data
 	dma.begin(true);
+#if defined(KINETISK)
 	dma.TCD->SADDR = &ADC0_RA;
 	dma.TCD->SOFF = 0;
 	dma.TCD->ATTR = DMA_TCD_ATTR_SSIZE(1) | DMA_TCD_ATTR_DSIZE(1);
@@ -82,6 +87,7 @@ void AudioInputAnalog::init(uint8_t pin)
 	dma.TCD->DLASTSGA = -sizeof(analog_rx_buffer);
 	dma.TCD->BITER_ELINKNO = sizeof(analog_rx_buffer) / 2;
 	dma.TCD->CSR = DMA_TCD_CSR_INTHALF | DMA_TCD_CSR_INTMAJOR;
+#endif
 	dma.triggerAtHardwareEvent(DMAMUX_SOURCE_ADC0);
 	update_responsibility = update_setup();
 	dma.enable();
@@ -96,7 +102,9 @@ void AudioInputAnalog::isr(void)
 	uint16_t *dest_left;
 	audio_block_t *left;
 
+#if defined(KINETISK)
 	daddr = (uint32_t)(dma.TCD->DADDR);
+#endif
 	dma.clearInterrupt();
 
 	if (daddr < (uint32_t)analog_rx_buffer + sizeof(analog_rx_buffer) / 2) {
@@ -128,7 +136,7 @@ void AudioInputAnalog::isr(void)
 void AudioInputAnalog::update(void)
 {
 	audio_block_t *new_left=NULL, *out_left=NULL;
-	unsigned int dc, offset;
+	uint32_t i, dc, offset;
 	int32_t tmp;
 	int16_t s, *p, *end;
 
@@ -173,18 +181,23 @@ void AudioInputAnalog::update(void)
 	block_offset = 0;
 	__enable_irq();
 
-	// find and subtract DC offset....
-	// TODO: this may not be correct, needs testing with more types of signals
-	dc = dc_average;
+	// Find and subtract DC offset... We use an average of the
+	// last 16 * AUDIO_BLOCK_SAMPLES samples.
+	dc = 0;
+	for (i = 0; i < 16; i++) {
+		dc += dc_average_hist[i];
+	}
+	dc /= 16 * AUDIO_BLOCK_SAMPLES;
+	dc_average_hist[current_dc_average_index] = 0;
 	p = out_left->data;
 	end = p + AUDIO_BLOCK_SAMPLES;
 	do {
+		dc_average_hist[current_dc_average_index] += (uint16_t)(*p);
 		tmp = (uint16_t)(*p) - (int32_t)dc;
 		s = signed_saturate_rshift(tmp, 16, 0);
 		*p++ = s;
-		dc += s / 12000;  // slow response, remove DC component
 	} while (p < end);
-	dc_average = dc;
+	current_dc_average_index = (current_dc_average_index + 1) % 16;
 
 	// then transmit the AC data
 	transmit(out_left);
